@@ -95,6 +95,7 @@ selectTupleOn.update = selectTupleOn.update.join(' ');
 
 const p1 = vegaEmbed('#vis1', vgSpec);
 const p2 = vegaEmbed('#vis2', vgSpec);
+const p3 = vegaEmbed('#vis3', vgSpec);
 
 // makes view2 get annotation from interactions on view1 from user1
 const listenToView = (view1, view2, user1, color) => {
@@ -123,10 +124,15 @@ const listenToView = (view1, view2, user1, color) => {
   });
 };
 
-Promise.all([p1, p2]).then(([res1, res2]) => {
+Promise.all([p1, p2, p3]).then(([res1, res2, res3]) => {
   const view1 = res1.view;
   const view2 = res2.view;
+  const view3 = res3.view;
 
   listenToView(view1, view2, 1, 'lightgreen');
+  listenToView(view1, view3, 1, 'lightgreen');
   listenToView(view2, view1, 2, 'orange');
+  listenToView(view2, view3, 2, 'orange');
+  listenToView(view3, view1, 3, 'lightpink');
+  listenToView(view3, view2, 3, 'lightpink');
 });
