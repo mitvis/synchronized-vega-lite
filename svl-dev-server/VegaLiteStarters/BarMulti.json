@@ -14,7 +14,7 @@
     ]
   },
   "selection": {
-    "select": { "type": "single" }
+    "select": { "type": "multi" }
   },
   "mark": {
     "type": "bar",
