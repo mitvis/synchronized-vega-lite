@@ -17,7 +17,7 @@
     "select": { "type": "single" }
   },
   "mark": {
-    "type": "bar",
+    "type": "circle",
     "cursor": "pointer"
   },
   "encoding": {

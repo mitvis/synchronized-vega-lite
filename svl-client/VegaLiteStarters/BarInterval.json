@@ -14,7 +14,7 @@
     ]
   },
   "selection": {
-    "select": { "type": "single" }
+    "select": { "type": "interval", "encodings": ["x"] }
   },
   "mark": {
     "type": "bar",
