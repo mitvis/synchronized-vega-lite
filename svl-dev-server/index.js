@@ -14,7 +14,7 @@ const spec = {
     ]
   },
   selection: {
-    select: { type: 'interval', encodings: ['x'] }
+    select: { type: 'single' }
   },
   mark: {
     type: 'bar',
