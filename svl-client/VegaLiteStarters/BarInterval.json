@@ -23,7 +23,7 @@
   "encoding": {
     "x": { "field": "a", "type": "ordinal" },
     "y": { "field": "b", "type": "quantitative" },
-    "fillOpacity": {
+    "opacity": {
       "condition": { "selection": "select", "value": 1 },
       "value": 0.3
     }
