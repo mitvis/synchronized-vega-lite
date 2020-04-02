@@ -14,7 +14,7 @@ const spec = {
     ]
   },
   selection: {
-    select: { type: 'single' }
+    select: { type: 'interval', encodings: ['x'] }
   },
   mark: {
     type: 'bar',
@@ -29,5 +29,4 @@ const spec = {
     }
   }
 };
-
-synchronize(spec, true);
+synchronize(spec);
