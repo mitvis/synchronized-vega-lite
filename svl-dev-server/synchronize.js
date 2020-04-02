@@ -1,13 +1,32 @@
 const colors = ['lightgreen', 'orange', 'lightpink'];
 
-const synchronize = vlSpec => {
+const synchronize = (vlSpec, options) => {
   console.log(vlSpec);
 
-  const selectionName = Object.keys(vlSpec.selection)?.[0];
+  let selectionName = options?.selectionName;
+  let selectionType = options?.selectionType;
+  const colorField = options?.colorField;
+
   if (!selectionName) {
-    return;
+    try {
+      selectionName = Object.keys(vlSpec.selection)?.[0];
+    } catch (e) {
+      console.error(
+        'Could not find selection name automatically. Please provide one!'
+      );
+      return;
+    }
   }
-  const selectType = vlSpec.selection[selectionName].type;
+
+  if (!selectionType) {
+    try {
+      selectionType = vlSpec.selection[selectionName].type;
+    } catch (e) {
+      console.error(
+        'Could not find selection type automatically. Please provide one!'
+      );
+    }
+  }
 
   // compile to vega
   const vgSpec = vegaLite.compile(vlSpec, {}).spec;
@@ -21,7 +40,7 @@ const synchronize = vlSpec => {
   });
 
   // set up for adding the annotation marks
-  const markEncode = vgSpec.marks.find(d => d.name === 'marks').encode;
+  const markEncode = vgSpec.marks.find(d => d.name.endsWith('marks')).encode;
 
   // get the encodings for x and y, modify them to access them in a different way
   const prependFieldWithData = (d, offset) => ({
@@ -30,11 +49,11 @@ const synchronize = vlSpec => {
     offset
   });
   const xEncodeUpdate =
-    selectType === 'interval'
+    selectionType === 'interval'
       ? { field: 'x' }
       : prependFieldWithData(markEncode.update.x, 8);
   const yEncodeUpdate =
-    selectType === 'interval'
+    selectionType === 'interval'
       ? { field: 'y' }
       : prependFieldWithData(markEncode.update.y, -8);
 
@@ -72,13 +91,40 @@ const synchronize = vlSpec => {
     ]
   });
 
+  if (selectionType === 'interval') {
+    const brushBGName = selectionName + '_brush_bg';
+    const brushBGEnter = vgSpec.marks.find(m => m.name === brushBGName).encode
+      .enter;
+    prevFill = brushBGEnter.fill;
+    brushBGEnter.fill = [
+      {
+        test: 'annotationHover.color',
+        signal: 'annotationHover.color'
+      },
+      prevFill
+    ];
+  } else if (colorField) {
+    // add coloring for marks on annotation hover
+    const prevField = markEncode.update[colorField];
+    if (prevField === undefined) {
+      throw `colorField ('${colorField}') is not defined in converted Vega specification!`;
+    }
+    markEncode.update[colorField] = [
+      {
+        test: 'annotationHover.color',
+        signal: 'annotationHover.color'
+      },
+      prevField
+    ];
+  }
+
   // signal for holding temporary state
   vgSpec.signals.push({
     name: 'tempState',
     value: {}
   });
 
-  if (selectType !== 'interval') {
+  if (selectionType !== 'interval') {
     // removes default selection signal on annotations
     const selectTupleOn = vgSpec.signals.find(
       d => d.name === selectionName + '_tuple'
@@ -101,7 +147,7 @@ const synchronize = vlSpec => {
         return;
       }
       const newAnnotation = [];
-      if (selectType === 'interval') {
+      if (selectionType === 'interval') {
         if (Object.keys(value).length) {
           const selectState = view1.getState({
             signals: name => name.startsWith(selectionName),
