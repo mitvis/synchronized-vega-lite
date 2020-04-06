@@ -10,23 +10,23 @@ const spec = {
       { a: 'F', b: 53 },
       { a: 'G', b: 19 },
       { a: 'H', b: 87 },
-      { a: 'I', b: 52 }
-    ]
+      { a: 'I', b: 52 },
+    ],
   },
   selection: {
-    select: { type: 'interval', encodings: ['x'] }
+    select: { type: 'multi' },
   },
   mark: {
-    type: 'bar',
-    cursor: 'pointer'
+    type: 'point',
+    cursor: 'pointer',
   },
   encoding: {
     x: { field: 'a', type: 'ordinal' },
     y: { field: 'b', type: 'quantitative' },
     opacity: {
       condition: { selection: 'select', value: 1 },
-      value: 0.3
-    }
-  }
+      value: 0.3,
+    },
+  },
 };
-synchronize(spec);
+synchronize(spec, { colorField: 'stroke' });
