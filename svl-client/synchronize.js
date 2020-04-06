@@ -146,10 +146,12 @@ const synchronize = (vlSpec, options) => {
     // removes default selection signal on annotations
     const selectTupleOn = vgSpec.signals.find(
       (d) => d.name === selectionName + '_tuple'
-    ).on[0];
-    selectTupleOn.update = selectTupleOn.update.split(' ');
-    selectTupleOn.update.splice(1, 0, '&& !datum._isAnnotation_');
-    selectTupleOn.update = selectTupleOn.update.join(' ');
+    )?.on?.[0];
+    if (selectTupleOn) {
+      selectTupleOn.update = selectTupleOn.update.split(' ');
+      selectTupleOn.update.splice(1, 0, '&& !datum._isAnnotation_');
+      selectTupleOn.update = selectTupleOn.update.join(' ');
+    }
   }
 
   const p1 = vegaEmbed('#vis1', vgSpec);

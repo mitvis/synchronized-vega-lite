@@ -14,10 +14,10 @@ const spec = {
     ],
   },
   selection: {
-    select: { type: 'multi' },
+    select: { type: 'interval', encodings: ['x'] },
   },
   mark: {
-    type: 'point',
+    type: 'bar',
     cursor: 'pointer',
   },
   encoding: {
@@ -29,4 +29,4 @@ const spec = {
     },
   },
 };
-synchronize(spec, { colorField: 'stroke' });
+synchronize(spec, {});
