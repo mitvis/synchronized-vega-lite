@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Vega-Lite Bar Chart</title>
+    <title>Synchronized Vega-Lite</title>
     <meta charset="utf-8" />
 
     <script src="https://cdn.jsdelivr.net/npm/vega@5.9.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-lite@4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.2.2"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/flatted@2.0.2/min.js"></script>
 
     <style media="screen">
       /* Add space between Vega-Embed links  */
@@ -16,9 +18,7 @@
     </style>
   </head>
   <body>
-    <div id="vis1"></div>
-    <div id="vis2"></div>
-    <div id="vis3"></div>
+    <div id="vis"></div>
     <script src="synchronize.js"></script>
     <script src="index.js"></script>
   </body>
