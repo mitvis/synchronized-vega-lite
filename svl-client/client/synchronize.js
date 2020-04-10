@@ -6,6 +6,7 @@ const synchronize = (vlSpec, options) => {
   let selectionName = options?.selectionName;
   let selectionType = options?.selectionType;
   const colorField = options?.colorField;
+  const markName = options?.markName;
 
   if (!selectionName) {
     try {
@@ -51,14 +52,19 @@ const synchronize = (vlSpec, options) => {
   const allMarks = recursiveMarks(vgSpec.marks);
 
   // set up for adding the annotation marks
-  const interactiveMark = allMarks.find(
-    (d) => d.name.endsWith('marks') && d.interactive
+  // finds the mark with the given markName, or just the first interactive mark.
+  const interactiveMark = allMarks.find((d) =>
+    markName
+      ? d.name === markName + '_marks'
+      : d.name.endsWith('marks') && d.interactive
   );
   if (!interactiveMark) {
-    console.error('No interactive mark found!');
+    console.error('No mark found! Please provide a correct markName.');
     return;
   }
   const markEncode = interactiveMark.encode;
+
+  console.log(interactiveMark);
 
   // get the encodings for x and y, modify them to access them in a different way
   const prependFieldWithData = (d, offset) => ({
@@ -154,125 +160,128 @@ const synchronize = (vlSpec, options) => {
     }
   }
 
-  const p1 = vegaEmbed('#vis1', vgSpec);
-  const p2 = vegaEmbed('#vis2', vgSpec);
-  const p3 = vegaEmbed('#vis3', vgSpec);
+  vegaEmbed('#vis', vgSpec).then((res) => {
+    const view = res.view;
+    const socket = io();
 
-  // makes view2 get annotation from interactions on view1 from user1
-  const listenToView = (view1, view2, user1, color) => {
-    view1.addSignalListener(selectionName, (name, value) => {
-      const hovering = view1.signal('annotationHover');
-      if (hovering.selectState) {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 's') {
+        console.log(
+          view.getState({
+            signals: (name) => name,
+            data: (name) => name,
+          })
+        );
+      }
+    });
+
+    view.addSignalListener(selectionName, (name, value) => {
+      const hovering = view.signal('annotationHover');
+      if (hovering.user) {
         // don't update other views when select state is modified by annotation interaction
         return;
       }
-      const newAnnotation = [];
+      let newAnnotation;
       if (selectionType === 'interval') {
         if (Object.keys(value).length) {
-          const selectState = view1.getState({
-            signals: (name) =>
-              name.startsWith(selectionName) &&
-              !name.includes('translate') &&
-              !name.includes('zoom'), // transferring translation/zoom signals causes issues with vega
-            data: (name) => name.startsWith(selectionName),
+          const signalNames = ['_x', '_y'].map(
+            (postfix) => selectionName + postfix
+          );
+          const selectState = view.getState({
+            signals: (name) => signalNames.includes(name),
           });
 
           // The "brush_x" signal exists either in the root signals or in a nested signal,
-          // thus all the extended logic here.
+          // thus all the extended logic here. Takes the first value of the brush selection.
           // Falls back to 0,0 if nothing else found.
-          const x =
-            selectState.signals[selectionName + '_x']?.[0] ||
-            selectState.subcontext?.find(
-              (ctx) => ctx.signals[selectionName + '_x']
-            )?.signals[selectionName + '_x']?.[0] ||
-            0;
-          const y =
-            selectState.signals[selectionName + '_y']?.[0] ||
-            selectState.subcontext?.find(
-              (ctx) => ctx.signals[selectionName + '_x']
-            )?.signals[selectionName + '_y']?.[0] ||
-            0;
+          const [x, y] = signalNames.map(
+            (signal) =>
+              selectState.signals[signal]?.[0] ||
+              selectState.subcontext?.find((ctx) => ctx.signals[signal])
+                ?.signals[signal]?.[0] ||
+              0
+          );
 
-          newAnnotation.push({
-            user: user1,
+          newAnnotation = {
+            user: socket.id,
             name: selectionName,
-            color,
+            color: 'green',
             x,
             y,
-            selectState,
             _isAnnotation_: true,
-          });
+          };
         }
       } else {
         if (value._vgsid_) {
-          const selectState = view1.getState({
-            signals: (name) => name.startsWith(selectionName),
-            data: (name) => name.startsWith(selectionName),
-          });
-          data = view2.data('data_0'); // TODO: make this not sketchy?
+          data = view.data('data_0'); // TODO: make this not sketchy?
           const annotationData = data.filter((d) =>
             value._vgsid_.includes(d._vgsid_)
           );
-          newAnnotation.push({
-            user: user1,
+          newAnnotation = {
+            user: socket.id,
             name: selectionName,
-            color,
+            color: 'green',
             data: annotationData,
-            selectState,
             _isAnnotation_: true,
-          });
+          };
         }
       }
-      if (newAnnotation) {
-        view2
-          .change(
-            'annotations',
-            vega
-              .changeset()
-              .remove((d) => d.user === user1)
-              .insert(newAnnotation)
-          )
-          .run();
+      socket.emit('annotation', newAnnotation);
+    });
+
+    socket.on('annotations', (annotations) => {
+      view
+        .change(
+          'annotations',
+          vega
+            .changeset()
+            .remove((d) => Object.keys(annotations).includes(d.user))
+            .insert(Object.values(annotations).filter((a) => a))
+        )
+        .runAsync();
+    });
+
+    let remoteUser;
+
+    // temporarily switch select state to remote user's selection state when interacting with annotation
+    view.addSignalListener('annotationHover', (name, value) => {
+      if (value.user) {
+        console.log(`requesting state from ${value.user}`);
+        socket.emit('requestState', value.user);
+        remoteUser = value.user;
+      } else {
+        remoteUser = undefined;
+        const tempState = view.signal('tempState');
+        view.signal('tempState', {});
+        view.setState(tempState);
       }
     });
-  };
 
-  Promise.all([p1, p2, p3]).then((res) => {
-    const users = res.map((resi, i) => ({
-      id: i,
-      view: resi.view,
-      color: colors[i],
-    }));
-
-    for (let i = 0; i < users.length; i++) {
-      for (let j = 0; j < users.length; j++) {
-        if (i === j) {
-          continue;
-        }
-        listenToView(users[i].view, users[j].view, i, users[i].color);
-      }
-    }
-
-    for (user of users) {
-      const view = user.view;
-      // temporarily switch select state to remote user's selection state when interacting with annotation
-      view.addSignalListener('annotationHover', (name, value) => {
-        if (value.selectState) {
-          const selectState = view.getState({
-            signals: (name) =>
-              name.startsWith(selectionName) &&
-              !name.includes('translate') &&
-              !name.includes('zoom'), // transferring translation/zoom signals causes issues with vega
-            data: (name) => name.startsWith(selectionName),
-          });
-          view.signal('tempState', selectState);
-          view.setState(value.selectState);
-        } else {
-          const tempState = view.signal('tempState');
-          view.signal('tempState', {});
-          view.setState(tempState);
-        }
+    socket.on('stateRequest', (to) => {
+      const selectState = view.getState({
+        signals: (name) =>
+          name === selectionName + '_x' || name === selectionName + '_y',
+        data: (name) => name === selectionName + '_store',
       });
-    }
+      console.log(selectState);
+      const state = Flatted.stringify(selectState);
+      console.log(`sending state to ${to}`);
+      socket.emit('stateResponse', { state, to });
+    });
+
+    socket.on('remoteState', (response) => {
+      if (response.user === remoteUser) {
+        console.log(`got state from ${remoteUser}`);
+        const remoteState = Flatted.parse(response.state);
+        console.log(remoteState);
+        const selectState = view.getState({
+          signals: (name) =>
+            name === selectionName + '_x' || name === selectionName + '_y',
+          data: (name) => name === selectionName + '_store',
+        });
+        view.signal('tempState', selectState);
+        view.setState(remoteState);
+      }
+    });
   });
 };
