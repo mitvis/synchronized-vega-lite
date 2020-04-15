@@ -5,7 +5,6 @@ const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const randomColor = require('randomcolor');
-const { parse, stringify } = require('flatted/cjs');
 
 const publicPath = path.resolve(__dirname, '..', 'client');
 
