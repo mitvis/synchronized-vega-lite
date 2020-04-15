@@ -6,6 +6,7 @@ const spec = {
   },
   vconcat: [
     {
+      name: 'scatter',
       encoding: {
         color: {
           condition: {
@@ -71,10 +72,16 @@ const spec = {
 };
 
 synchronize(spec, {
-  selectionName: 'click',
-  selectionType: 'multi',
-  markName: 'concat_1',
-  groupName: 'concat_1',
+  selectionName: 'brush',
+  selectionType: 'interval',
+  markName: 'scatter',
+  groupName: 'scatter',
   offsetX: 8,
   offsetY: 8,
+  annotationDefinition: {
+    mark: {
+      type: 'square',
+      size: 100,
+    },
+  },
 });

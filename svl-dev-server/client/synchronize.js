@@ -1,5 +1,3 @@
-const colors = ['lightgreen', 'orange', 'lightpink'];
-
 const synchronize = (vlSpec, options) => {
   console.log(vlSpec);
 
@@ -8,8 +6,28 @@ const synchronize = (vlSpec, options) => {
   const colorField = options?.colorField;
   const markName = options?.markName;
   const groupName = options?.groupName;
-  const offsetX = options?.offsetX || 8;
-  const offsetY = options?.offsetY || -8;
+  const offsetX = options?.offsetX || 0;
+  const offsetY = options?.offsetY || 0;
+  const annotationDefinition = options?.annotationDefinition;
+
+  // default annotation
+  let annotationMark = {
+    type: 'symbol',
+    encode: {
+      enter: {
+        size: { value: 100 },
+      },
+    },
+  };
+
+  if (annotationDefinition) {
+    try {
+      const vgAnnotation = vegaLite.compile(annotationDefinition, {}).spec;
+      annotationMark = vgAnnotation.marks.find((mark) => mark.name === 'marks');
+    } catch (e) {
+      console.error('Cannot compile annotation definition!', e);
+    }
+  }
 
   if (!selectionName) {
     try {
@@ -95,20 +113,19 @@ const synchronize = (vlSpec, options) => {
 
   // add marks for annotations
   rootGroup.marks.push({
-    type: 'symbol',
+    ...annotationMark,
     from: { data: 'annotations' },
     name: 'annotationMarks',
     encode: {
-      enter: {
+      ...annotationMark.encode,
+      update: {
+        stroke: { value: 'red' },
+        strokeWidth: { value: 0 },
+        opacity: { value: 0.6 },
+        ...annotationMark.encode.update,
         x: xEncodeUpdate,
         y: yEncodeUpdate,
         fill: { field: 'color' },
-        size: { value: 100 },
-        stroke: { value: 'red' },
-      },
-      update: {
-        strokeWidth: { value: 0 },
-        opacity: { value: 0.6 },
       },
       hover: {
         strokeWidth: { value: 0.5 },
