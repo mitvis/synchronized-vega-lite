@@ -7,6 +7,9 @@ const synchronize = (vlSpec, options) => {
   let selectionType = options?.selectionType;
   const colorField = options?.colorField;
   const markName = options?.markName;
+  const groupName = options?.groupName;
+  const offsetX = options?.offsetX || 8;
+  const offsetY = options?.offsetY || -8;
 
   if (!selectionName) {
     try {
@@ -64,7 +67,13 @@ const synchronize = (vlSpec, options) => {
   }
   const markEncode = interactiveMark.encode;
 
-  console.log(interactiveMark);
+  console.log(markEncode);
+
+  const rootGroup = groupName
+    ? vgSpec.marks.find((mark) => mark.name === groupName + '_group')
+    : vgSpec;
+
+  console.log(rootGroup);
 
   // get the encodings for x and y, modify them to access them in a different way
   const prependFieldWithData = (d, offset) => ({
@@ -72,17 +81,20 @@ const synchronize = (vlSpec, options) => {
     field: `data[0].${d.field}`,
     offset,
   });
+
+  // for intervals, our annotation data will provide x and y values.
+  // for nonintervals (single/multi), utilize the vega spec's encoding and modify it for our annotation data.
   const xEncodeUpdate =
     selectionType === 'interval'
       ? { field: 'x' }
-      : prependFieldWithData(markEncode.update.x, 8);
+      : prependFieldWithData(markEncode.update.x, offsetX);
   const yEncodeUpdate =
     selectionType === 'interval'
       ? { field: 'y' }
-      : prependFieldWithData(markEncode.update.y, -8);
+      : prependFieldWithData(markEncode.update.y, offsetY);
 
   // add marks for annotations
-  vgSpec.marks.push({
+  rootGroup.marks.push({
     type: 'symbol',
     from: { data: 'annotations' },
     name: 'annotationMarks',
@@ -104,6 +116,21 @@ const synchronize = (vlSpec, options) => {
       },
     },
   });
+
+  if (selectionType !== 'interval') {
+    // data filtered down to selected values
+    // don't need filtered data for intervals since annotations are generated based on x/y signals for the brush
+    vgSpec.data.push({
+      name: 'filtered_data',
+      source: 'data_0', // TODO: make this not default
+      transform: [
+        {
+          type: 'filter',
+          expr: `!(length(data("${selectionName}_store"))) || (vlSelectionTest("${selectionName}_store", datum))`,
+        },
+      ],
+    });
+  }
 
   // add signal for annotation interaction
   vgSpec.signals.push({
@@ -182,8 +209,9 @@ const synchronize = (vlSpec, options) => {
         return;
       }
       let newAnnotation;
-      if (selectionType === 'interval') {
-        if (Object.keys(value).length) {
+      if (Object.keys(value).length) {
+        if (selectionType === 'interval') {
+          // if interval type selection, grab x and y select signal values to pass for annotation
           const signalNames = ['_x', '_y'].map(
             (postfix) => selectionName + postfix
           );
@@ -210,18 +238,15 @@ const synchronize = (vlSpec, options) => {
             y,
             _isAnnotation_: true,
           };
-        }
-      } else {
-        if (value._vgsid_) {
-          data = view.data('data_0'); // TODO: make this not sketchy?
-          const annotationData = data.filter((d) =>
-            value._vgsid_.includes(d._vgsid_)
-          );
+        } else {
+          // otherwise, just pass the data of the representative marks for the interaction
+          // and the mark spec will handle it from there (see mark def at top of file)
+          data = view.data('filtered_data');
           newAnnotation = {
             user: socket.id,
             name: selectionName,
             color: 'green',
-            data: annotationData,
+            data,
             _isAnnotation_: true,
           };
         }
