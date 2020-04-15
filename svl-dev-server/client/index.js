@@ -1,32 +1,80 @@
 const spec = {
   $schema: 'https://vega.github.io/schema/vega-lite/v4.json',
+  title: 'Seattle Weather, 2012-2015',
   data: {
-    values: [
-      { a: 'A', b: 28 },
-      { a: 'B', b: 55 },
-      { a: 'C', b: 43 },
-      { a: 'D', b: 91 },
-      { a: 'E', b: 81 },
-      { a: 'F', b: 53 },
-      { a: 'G', b: 19 },
-      { a: 'H', b: 87 },
-      { a: 'I', b: 52 },
-    ],
+    url: 'data/seattle-weather.csv',
   },
-  selection: {
-    select: { type: 'single' },
-  },
-  mark: {
-    type: 'bar',
-    cursor: 'pointer',
-  },
-  encoding: {
-    x: { field: 'a', type: 'ordinal' },
-    y: { field: 'b', type: 'quantitative' },
-    opacity: {
-      condition: { selection: 'select', value: 1 },
-      value: 0.3,
+  vconcat: [
+    {
+      encoding: {
+        color: {
+          condition: {
+            title: 'Weather',
+            field: 'weather',
+            scale: {
+              domain: ['sun', 'fog', 'drizzle', 'rain', 'snow'],
+              range: ['#e7ba52', '#a7a7a7', '#aec7e8', '#1f77b4', '#9467bd'],
+            },
+            selection: 'brush',
+            type: 'nominal',
+          },
+          value: 'lightgray',
+        },
+        size: {
+          title: 'Precipitation',
+          field: 'precipitation',
+          scale: { domain: [-1, 50] },
+          type: 'quantitative',
+        },
+        x: {
+          axis: { title: 'Date', format: '%b' },
+          field: 'date',
+          timeUnit: 'monthdate',
+          type: 'temporal',
+        },
+        y: {
+          axis: { title: 'Maximum Daily Temperature (C)' },
+          field: 'temp_max',
+          scale: { domain: [-5, 40] },
+          type: 'quantitative',
+        },
+      },
+      width: 600,
+      height: 300,
+      mark: 'point',
+      selection: { brush: { encodings: ['x'], type: 'interval' } },
+      transform: [{ filter: { selection: 'click' } }],
     },
-  },
+    {
+      encoding: {
+        color: {
+          condition: {
+            field: 'weather',
+            scale: {
+              domain: ['sun', 'fog', 'drizzle', 'rain', 'snow'],
+              range: ['#e7ba52', '#a7a7a7', '#aec7e8', '#1f77b4', '#9467bd'],
+            },
+            selection: 'click',
+            type: 'nominal',
+          },
+          value: 'lightgray',
+        },
+        x: { aggregate: 'count', type: 'quantitative' },
+        y: { title: 'Weather', field: 'weather', type: 'nominal' },
+      },
+      width: 600,
+      mark: 'bar',
+      selection: { click: { encodings: ['color'], type: 'multi' } },
+      transform: [{ filter: { selection: 'brush' } }],
+    },
+  ],
 };
-synchronize(spec, { colorField: 'fill' });
+
+synchronize(spec, {
+  selectionName: 'click',
+  selectionType: 'multi',
+  markName: 'concat_1',
+  groupName: 'concat_1',
+  offsetX: 8,
+  offsetY: 8,
+});
