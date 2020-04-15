@@ -71,17 +71,18 @@ const spec = {
   ],
 };
 
-synchronize(spec, {
-  selectionName: 'brush',
-  selectionType: 'interval',
-  markName: 'scatter',
-  groupName: 'scatter',
-  offsetX: 8,
-  offsetY: 8,
-  annotationDefinition: {
-    mark: {
-      type: 'square',
-      size: 100,
-    },
-  },
+const socket = io();
+
+document.querySelector('#spec-submit').addEventListener('click', (e) => {
+  const spec = document.querySelector('#spec-input').value;
+  const options = document.querySelector('#options-input').value;
+  socket.emit('newSpec', { spec, options });
+});
+
+socket.on('spec', (spec) => {
+  document.querySelector('#spec-input').value = spec.spec;
+  document.querySelector('#options-input').value = spec.options;
+  const vlSpec = JSON.parse(spec.spec);
+  console.log(vlSpec);
+  synchronize(vlSpec, spec.options && JSON.parse(spec.options));
 });
