@@ -10,12 +10,15 @@ const publicPath = path.resolve(__dirname, '..', 'client');
 
 app.use(express.static(publicPath));
 
-http.listen(3000, () => {
-  console.log(`Listening on port 3000 and serving folder ${publicPath}`);
+const port = process.env.PORT || 3000;
+
+http.listen(port, () => {
+  console.log(`Listening on port ${port} and serving folder ${publicPath}`);
 });
 
 const users = {};
 const annotations = {};
+let spec;
 
 io.on('connection', (socket) => {
   console.log(`user ${socket.id} connected`);
@@ -23,6 +26,15 @@ io.on('connection', (socket) => {
   users[socket.id] = { color: randomColor({ luminosity: 'dark' }) };
   socket.emit('color', users[socket.id].color);
   socket.emit('annotations', annotations);
+
+  if (spec) {
+    socket.emit('spec', spec);
+  }
+
+  socket.on('newSpec', (newSpec) => {
+    spec = newSpec;
+    io.emit('spec', spec);
+  });
 
   socket.on('annotation', (annotation) => {
     if (annotation) {
@@ -55,5 +67,9 @@ io.on('connection', (socket) => {
     delete users[socket.id];
     delete annotations[socket.id];
     socket.broadcast.emit('annotations', { [socket.id]: null });
+
+    if (Object.keys(users).length === 0) {
+      spec = undefined;
+    }
   });
 });

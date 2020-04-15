@@ -6,6 +6,7 @@
   },
   "vconcat": [
     {
+      "name": "scatter",
       "encoding": {
         "color": {
           "condition": {
