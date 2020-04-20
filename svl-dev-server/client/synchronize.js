@@ -1,4 +1,4 @@
-const synchronize = (vlSpec, options) => {
+const synchronize = (vlSpec, options, socket) => {
   console.log(vlSpec);
 
   let selectionName = options?.selectionName;
@@ -206,7 +206,9 @@ const synchronize = (vlSpec, options) => {
 
   vegaEmbed('#vis', vgSpec).then((res) => {
     const view = res.view;
-    const socket = io();
+    if (!socket) {
+      socket = io();
+    }
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 's') {
