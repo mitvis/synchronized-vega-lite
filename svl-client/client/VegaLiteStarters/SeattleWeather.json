@@ -47,6 +47,7 @@
       "transform": [{ "filter": { "selection": "click" } }]
     },
     {
+      "name": "bars",
       "encoding": {
         "color": {
           "condition": {

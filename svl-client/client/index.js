@@ -84,5 +84,5 @@ socket.on('spec', (spec) => {
   document.querySelector('#options-input').value = spec.options;
   const vlSpec = JSON.parse(spec.spec);
   console.log(vlSpec);
-  synchronize(vlSpec, spec.options && JSON.parse(spec.options));
+  synchronize(vlSpec, spec.options && JSON.parse(spec.options), socket);
 });

@@ -17,7 +17,7 @@ http.listen(port, () => {
 });
 
 const users = {};
-const annotations = {};
+let annotations = {};
 let spec;
 
 io.on('connection', (socket) => {
@@ -33,6 +33,7 @@ io.on('connection', (socket) => {
 
   socket.on('newSpec', (newSpec) => {
     spec = newSpec;
+    annotations = {};
     io.emit('spec', spec);
   });
 
