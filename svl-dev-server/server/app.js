@@ -37,17 +37,18 @@ io.on('connection', (socket) => {
     io.emit('spec', spec);
   });
 
-  socket.on('annotation', (annotation) => {
+  socket.on('annotation', ({ annotation, selectionName }) => {
+    const selectionId = socket.id + selectionName;
     if (annotation) {
       annotation = {
         ...annotation,
         color: users[socket.id].color,
       };
-      annotations[socket.id] = annotation;
+      annotations[selectionId] = annotation;
     } else {
-      delete annotations[socket.id];
+      delete annotations[selectionId];
     }
-    socket.broadcast.emit('annotations', { [socket.id]: annotation });
+    socket.broadcast.emit('annotations', annotations);
   });
 
   socket.on('requestState', (user) => {
@@ -66,8 +67,13 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`user ${socket.id} disconnected`);
     delete users[socket.id];
-    delete annotations[socket.id];
-    socket.broadcast.emit('annotations', { [socket.id]: null });
+    const keys = Object.keys(annotations);
+    for (const key of keys) {
+      if (key.startsWith(socket.id)) {
+        delete annotations[key];
+      }
+    }
+    socket.broadcast.emit('annotations', annotations);
 
     if (Object.keys(users).length === 0) {
       spec = undefined;

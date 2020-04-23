@@ -6,7 +6,6 @@
   },
   "vconcat": [
     {
-      "name": "scatter",
       "encoding": {
         "color": {
           "condition": {
@@ -47,7 +46,6 @@
       "transform": [{ "filter": { "selection": "click" } }]
     },
     {
-      "name": "bars",
       "encoding": {
         "color": {
           "condition": {
