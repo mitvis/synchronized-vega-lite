@@ -10,6 +10,8 @@ const synchronize = (vlSpec, options, socket) => {
   const offsetY = options?.offsetY || 0;
   const annotationDefinition = options?.annotationDefinition;
 
+  const DEFAULT_COLOR = 'green';
+
   // default annotation
   let annotationMark = {
     type: 'symbol',
@@ -102,7 +104,7 @@ const synchronize = (vlSpec, options, socket) => {
       name: dataName,
       source: 'svl_annotations',
       transform: [
-        { type: 'filter', expr: `datum.name === '${selectionName}'` },
+        { type: 'filter', expr: `datum._svlName === '${selectionName}'` },
       ],
     });
 
@@ -119,57 +121,59 @@ const synchronize = (vlSpec, options, socket) => {
     }
     const markEncode = interactiveMark.encode;
 
-    // console.log(markEncode);
-
-    console.log(groupName);
-
     const rootGroup =
       vgSpec.marks.find((mark) => mark.name === groupName + '_group') || vgSpec;
 
-    console.log(rootGroup);
-
-    // get the encodings for x and y, modify them to access them in a different way
-    const prependFieldWithData = (d, offset) => ({
+    // insert user input offset into encoding
+    const addOffset = (d, offset) => ({
       ...d,
-      field: `data[0].${d.field}`,
-      offset,
+      offset: offset || d.offset,
     });
 
     // for intervals, our annotation data will provide x and y values.
     // for nonintervals (single/multi), utilize the vega spec's encoding and modify it for our annotation data.
     const xEncodeUpdate =
       selectionType === 'interval'
-        ? { field: 'x' }
-        : prependFieldWithData(markEncode.update.x, offsetX);
+        ? { field: '_svlx' }
+        : addOffset(markEncode.update.x, offsetX);
     const yEncodeUpdate =
       selectionType === 'interval'
-        ? { field: 'y' }
-        : prependFieldWithData(markEncode.update.y, offsetY);
+        ? { field: '_svly' }
+        : addOffset(markEncode.update.y, offsetY);
 
     const annotationMarkName = `annotation_marks_${selectionName}`;
 
-    // add marks for annotations
-    rootGroup.marks.push({
+    let annotationUpdate = annotationMark.encode.update;
+    let annotationHover = annotationMark.encode.hover;
+    if (!annotationUpdate) {
+      annotationUpdate = {
+        stroke: { value: 'red' },
+        strokeWidth: { value: 0 },
+        opacity: { value: 0.6 },
+        x: xEncodeUpdate,
+        y: yEncodeUpdate,
+        fill: { field: '_svlColor' },
+      };
+      annotationHover = {
+        strokeWidth: { value: 0.5 },
+        opacity: { value: 1 },
+        ...annotationMark.encode.hover,
+      };
+    }
+
+    const modifiedMark = {
       ...annotationMark,
-      from: { data: dataName },
-      name: annotationMarkName,
       encode: {
         ...annotationMark.encode,
-        update: {
-          stroke: { value: 'red' },
-          strokeWidth: { value: 0 },
-          opacity: { value: 0.6 },
-          ...annotationMark.encode.update,
-          x: xEncodeUpdate,
-          y: yEncodeUpdate,
-          fill: { field: 'color' },
-        },
-        hover: {
-          strokeWidth: { value: 0.5 },
-          opacity: { value: 1 },
-        },
+        update: annotationUpdate,
+        hover: annotationHover,
       },
-    });
+      from: { data: dataName },
+      name: annotationMarkName,
+    };
+
+    // add marks for annotations
+    rootGroup.marks.push(modifiedMark);
 
     if (selectionType !== 'interval') {
       // data filtered down to selected values
@@ -269,10 +273,11 @@ const synchronize = (vlSpec, options, socket) => {
 
       view.addSignalListener(selectionName, (name, value) => {
         const hovering = view.signal(`annotation_hover`);
-        if (hovering.user) {
+        if (hovering._svlUser) {
           // don't update other views when select state is modified by annotation interaction
           return;
         }
+
         let newAnnotation;
         if (Object.keys(value).length) {
           if (selectionType === 'interval') {
@@ -296,22 +301,22 @@ const synchronize = (vlSpec, options, socket) => {
             );
 
             newAnnotation = {
-              user: socket.id,
-              name: selectionName,
-              color: 'green',
-              x,
-              y,
+              _svlUser: socket.id,
+              _svlName: selectionName,
+              _svlColor: DEFAULT_COLOR,
+              _svlx: x,
+              _svly: y,
               _isAnnotation_: true,
             };
           } else {
             // otherwise, just pass the data of the representative marks for the interaction
             // and the mark spec will handle it from there (see mark def at top of file)
-            data = view.data(`filtered_data_${selectionName}`);
+            const datum = view.data(`filtered_data_${selectionName}`)[0];
             newAnnotation = {
-              user: socket.id,
-              name: selectionName,
-              color: 'green',
-              data,
+              _svlUser: socket.id,
+              _svlName: selectionName,
+              _svlColor: DEFAULT_COLOR,
+              ...datum,
               _isAnnotation_: true,
             };
           }
@@ -327,7 +332,7 @@ const synchronize = (vlSpec, options, socket) => {
         .data(
           'svl_annotations',
           Object.values(annotations).filter(
-            (a) => a.user && a.user !== socket.id
+            (a) => a._svlUser && a._svlUser !== socket.id
           )
         )
         .runAsync();
@@ -337,10 +342,10 @@ const synchronize = (vlSpec, options, socket) => {
 
     // temporarily switch select state to remote user's selection state when interacting with annotation
     view.addSignalListener('annotation_hover', (name, value) => {
-      if (value.user) {
-        console.debug(`requesting state from ${value.user}`);
-        socket.emit('requestState', value.user);
-        remoteUser = value.user;
+      if (value._svlUser) {
+        console.debug(`requesting state from ${value._svlUser}`);
+        socket.emit('requestState', value._svlUser);
+        remoteUser = value._svlUser;
       } else {
         remoteUser = undefined;
         const tempState = view.signal('tempState');

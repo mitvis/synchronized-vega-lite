@@ -42,7 +42,7 @@ io.on('connection', (socket) => {
     if (annotation) {
       annotation = {
         ...annotation,
-        color: users[socket.id].color,
+        _svlColor: users[socket.id].color,
       };
       annotations[selectionId] = annotation;
     } else {
