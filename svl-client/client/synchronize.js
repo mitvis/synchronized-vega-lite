@@ -1,23 +1,22 @@
 const synchronize = (vlSpec, options, socket) => {
   console.log(vlSpec);
 
-  let selectionName = options?.selectionName;
-  let selectionType = options?.selectionType;
   const colorField = options?.colorField;
-  const markName = options?.markName;
-  const groupName = options?.groupName;
   const offsetX = options?.offsetX || 0;
   const offsetY = options?.offsetY || 0;
   const annotationDefinition = options?.annotationDefinition;
+  const annotationLegend = options?.annotationLegend;
+  const showAnnotations = options?.showAnnotations !== false;
 
   const DEFAULT_COLOR = 'green';
+  const DEFAULT_ANNOTATION_SIZE = 100;
 
   // default annotation
   let annotationMark = {
     type: 'symbol',
     encode: {
       enter: {
-        size: { value: 100 },
+        size: { value: DEFAULT_ANNOTATION_SIZE },
       },
     },
   };
@@ -173,14 +172,16 @@ const synchronize = (vlSpec, options, socket) => {
     };
 
     // add marks for annotations
-    rootGroup.marks.push(modifiedMark);
+    if (showAnnotations) {
+      rootGroup.marks.push(modifiedMark);
+    }
 
     if (selectionType !== 'interval') {
       // data filtered down to selected values
       // don't need filtered data for intervals since annotations are generated based on x/y signals for the brush
       vgSpec.data.push({
         name: `filtered_data_${selectionName}`,
-        source: 'data_0', // TODO: make this not default
+        source: 'source_0', // TODO: make this not default
         transform: [
           {
             type: 'filter',
@@ -238,6 +239,110 @@ const synchronize = (vlSpec, options, socket) => {
     );
   }
 
+  // signal for holding temporary state
+  vgSpec.signals.push({
+    name: 'tempState',
+    value: {},
+  });
+
+  if (annotationLegend) {
+    vgSpec.signals.push({
+      name: 'num_annotations',
+      update: "length(data('svl_annotations'))",
+    });
+
+    vgSpec.signals.push({
+      name: 'annotation_legend_pad',
+      update: 'width / (num_annotations + 1)',
+    });
+
+    vgSpec.data.push({
+      name: 'svl_annotations_legend',
+      transform: [
+        {
+          type: 'sequence',
+          as: '_i',
+          start: 0,
+          stop: { signal: 'num_annotations' },
+        },
+        {
+          type: 'formula',
+          as: 'color',
+          expr: "data('svl_annotations')[datum._i]._svlColor",
+        },
+        {
+          type: 'formula',
+          as: 'x',
+          expr: '(datum._i + 1) * annotation_legend_pad',
+        },
+        {
+          type: 'formula',
+          as: '_svlUser',
+          expr: "data('svl_annotations')[datum._i]._svlUser",
+        },
+      ],
+    });
+
+    vgSpec.marks.push({
+      type: 'group',
+      style: 'cell',
+      encode: {
+        enter: {
+          y: { signal: 'height', offset: 40 },
+          height: { value: 0 },
+          width: { signal: 'width' },
+          stroke: { value: 'gray' },
+          strokeWidth: { value: 0.5 },
+        },
+      },
+    });
+
+    vgSpec.marks.push({
+      type: 'group',
+      style: 'cell',
+      encode: {
+        enter: {
+          y: { signal: 'height', offset: 65 },
+          height: { value: 20 },
+          width: { signal: 'width' },
+          cornerRadius: { value: 5 },
+        },
+      },
+      title: {
+        text: 'Users',
+      },
+      marks: [
+        {
+          name: 'annotation_legend_marks',
+          from: { data: 'svl_annotations_legend' },
+          type: 'symbol',
+          encode: {
+            update: {
+              size: { value: 100 },
+              stroke: { value: 'red' },
+              strokeWidth: { value: 0 },
+              opacity: { value: 0.6 },
+              fill: { field: 'color' },
+              x: { field: 'x' },
+              y: { value: 10 },
+            },
+            hover: {
+              strokeWidth: { value: 0.5 },
+              opacity: { value: 1 },
+            },
+          },
+        },
+      ],
+    });
+
+    annotation_hover_events.push(
+      ...[
+        { events: `@annotation_legend_marks:mouseover`, update: 'datum' },
+        { events: `@annotation_legend_marks:mouseout`, update: '{}' },
+      ]
+    );
+  }
+
   // add signal for annotation interaction
   vgSpec.signals.push({
     name: 'annotation_hover',
@@ -245,11 +350,7 @@ const synchronize = (vlSpec, options, socket) => {
     on: annotation_hover_events,
   });
 
-  // signal for holding temporary state
-  vgSpec.signals.push({
-    name: 'tempState',
-    value: {},
-  });
+  console.log(vgSpec);
 
   vegaEmbed('#vis', vgSpec).then((res) => {
     const view = res.view;
