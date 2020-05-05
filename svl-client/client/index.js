@@ -75,14 +75,26 @@ const socket = io();
 
 document.querySelector('#spec-submit').addEventListener('click', (e) => {
   const spec = document.querySelector('#spec-input').value;
-  const options = document.querySelector('#options-input').value;
+  const annotation = document.querySelector('#annotation-input').value;
+  const showAnnotations = document.querySelector('#showAnnotations').checked;
+  const annotationLegend = document.querySelector('#annotationLegend').checked;
+  const options = {
+    annotationDefinition: annotation && JSON.parse(annotation),
+    showAnnotations,
+    annotationLegend,
+  };
+  console.log(options);
   socket.emit('newSpec', { spec, options });
 });
 
 socket.on('spec', (spec) => {
   document.querySelector('#spec-input').value = spec.spec;
-  document.querySelector('#options-input').value = spec.options;
+  document.querySelector('#annotation-input').value =
+    spec.options.annotation || '';
+  document.querySelector('#showAnnotations').checked =
+    spec.options.showAnnotations;
+  document.querySelector('#annotationLegend').checked =
+    spec.options.annotationLegend;
   const vlSpec = JSON.parse(spec.spec);
-  console.log(vlSpec);
-  synchronize(vlSpec, spec.options && JSON.parse(spec.options), socket);
+  synchronize('#vis', vlSpec, spec.options, socket);
 });

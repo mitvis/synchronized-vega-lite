@@ -18,7 +18,7 @@
     </style>
   </head>
   <body>
-    <div id="spec">
+    <div id="inputs">
       <textarea
         id="spec-input"
         placeholder="Enter specification here..."
@@ -26,11 +26,19 @@
         cols="50"
       ></textarea>
       <textarea
-        id="options-input"
-        placeholder="Enter options here..."
+        id="annotation-input"
+        placeholder="Enter custom annotation here..."
         rows="10"
         cols="50"
       ></textarea>
+    </div>
+    <div>
+      <input type="checkbox" id="showAnnotations" checked></input><label>Annotations</label>
+    </div>
+    <div>
+      <input type="checkbox" id="annotationLegend"></input><label>Annotation Legend</label>
+    </div>
+    <div>
       <button id="spec-submit">Submit</button>
     </div>
     <div id="vis"></div>

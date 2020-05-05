@@ -1,4 +1,4 @@
-const synchronize = (vlSpec, options, socket) => {
+const synchronize = (selector, vlSpec, options, socket) => {
   console.log(vlSpec);
 
   const colorField = options?.colorField;
@@ -58,7 +58,6 @@ const synchronize = (vlSpec, options, socket) => {
 
   const selections = findSelections(vlSpec);
   console.log(selections);
-  console.log(vlSpec);
 
   if (annotationDefinition) {
     try {
@@ -179,9 +178,15 @@ const synchronize = (vlSpec, options, socket) => {
     if (selectionType !== 'interval') {
       // data filtered down to selected values
       // don't need filtered data for intervals since annotations are generated based on x/y signals for the brush
+
+      // TODO: make this less jank
+      const source = vgSpec.data.find((d) => d.name === 'data_0')
+        ? 'data_0'
+        : 'source_0';
+
       vgSpec.data.push({
         name: `filtered_data_${selectionName}`,
-        source: 'source_0', // TODO: make this not default
+        source,
         transform: [
           {
             type: 'filter',
@@ -352,7 +357,7 @@ const synchronize = (vlSpec, options, socket) => {
 
   console.log(vgSpec);
 
-  vegaEmbed('#vis', vgSpec).then((res) => {
+  vegaEmbed(selector, vgSpec).then((res) => {
     const view = res.view;
     if (!socket) {
       socket = io();
@@ -460,6 +465,7 @@ const synchronize = (vlSpec, options, socket) => {
     const signalFilter = (name) =>
       Object.keys(selections)
         .flatMap((selectionName) => [
+          selectionName,
           selectionName + '_x',
           selectionName + '_y',
         ])
