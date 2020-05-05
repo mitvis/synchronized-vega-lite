@@ -163,8 +163,8 @@ const synchronize = (selector, vlSpec, options, socket) => {
       ...annotationMark,
       encode: {
         ...annotationMark.encode,
-        update: annotationUpdate,
-        hover: annotationHover,
+        update: annotationUpdate || {},
+        hover: annotationHover || {},
       },
       from: { data: dataName },
       name: annotationMarkName,
@@ -358,6 +358,7 @@ const synchronize = (selector, vlSpec, options, socket) => {
   console.log(vgSpec);
 
   vegaEmbed(selector, vgSpec).then((res) => {
+    console.log('wow');
     const view = res.view;
     if (!socket) {
       socket = io();

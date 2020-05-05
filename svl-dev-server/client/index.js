@@ -90,7 +90,7 @@ document.querySelector('#spec-submit').addEventListener('click', (e) => {
 socket.on('spec', (spec) => {
   document.querySelector('#spec-input').value = spec.spec;
   document.querySelector('#annotation-input').value =
-    spec.options.annotation || '';
+    JSON.stringify(spec.options.annotationDefinition, null, 2) || '';
   document.querySelector('#showAnnotations').checked =
     spec.options.showAnnotations;
   document.querySelector('#annotationLegend').checked =
