@@ -1,9 +1,7 @@
 {
-  "annotationDefinition": {
-    "mark": { "type": "rule" },
-    "encoding": {
-      "x": { "type": "temporal", "field": "date" },
-      "color": { "scale": null, "field": "_svlColor" }
-    }
+  "mark": { "type": "rule" },
+  "encoding": {
+    "x": { "type": "temporal", "field": "date" },
+    "color": { "scale": null, "field": "_svlColor" }
   }
 }
