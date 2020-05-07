@@ -358,7 +358,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
   console.log(vgSpec);
 
   vegaEmbed(selector, vgSpec).then((res) => {
-    console.log('wow');
     const view = res.view;
     if (!socket) {
       socket = io();
@@ -465,12 +464,12 @@ const synchronize = (selector, vlSpec, options, socket) => {
     // any selection name followed by either '_x' or '_y'.
     const signalFilter = (name) =>
       Object.keys(selections)
-        .flatMap((selectionName) => [
-          selectionName,
-          selectionName + '_x',
-          selectionName + '_y',
-        ])
-        .includes(name);
+        .map(
+          (selectionName) =>
+            name.startsWith(selectionName) &&
+            [...name].filter((char) => char === '_').length <= 1 // ignore complicated signals since they break intervals for some reason, TODO: Make this cleaner
+        )
+        .some(Boolean);
 
     // Takes a name of a data set, checks whether it matches any selection name
     // followed by '_store' (e.g. 'click_store').
