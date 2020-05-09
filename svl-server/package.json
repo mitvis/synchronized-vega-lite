@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/mitvis/svl-server#readme",
   "dependencies": {
+    "randomcolor": "^0.5.4",
     "socket.io": "^2.3.0"
   }
 }
