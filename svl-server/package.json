@@ -1,0 +1,22 @@
+{
+  "name": "svl-server",
+  "version": "1.0.0",
+  "description": "Server-side code from synchronized-vega-lite.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mitvis/svl-server.git"
+  },
+  "author": "Rupayan Neogy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mitvis/svl-server/issues"
+  },
+  "homepage": "https://github.com/mitvis/svl-server#readme",
+  "dependencies": {
+    "socket.io": "^2.3.0"
+  }
+}
