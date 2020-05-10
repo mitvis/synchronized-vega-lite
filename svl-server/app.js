@@ -3,7 +3,6 @@ const randomColor = require('randomcolor');
 const svlServer = (io) => {
   const users = {};
   let annotations = {};
-  let spec;
 
   io.on('connection', (socket) => {
     console.log(`user ${socket.id} connected`);
@@ -11,16 +10,6 @@ const svlServer = (io) => {
     users[socket.id] = { color: randomColor({ luminosity: 'dark' }) };
     socket.emit('color', users[socket.id].color);
     socket.emit('annotations', annotations);
-
-    if (spec) {
-      socket.emit('spec', spec);
-    }
-
-    socket.on('newSpec', (newSpec) => {
-      spec = newSpec;
-      annotations = {};
-      io.emit('spec', spec);
-    });
 
     socket.on('annotation', ({ annotation, selectionName }) => {
       const selectionId = socket.id + selectionName;
