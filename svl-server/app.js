@@ -67,5 +67,4 @@ const svlServer = (io) => {
   });
 };
 
-export { svlServer };
-export default svlServer;
+module.exports = svlServer;
