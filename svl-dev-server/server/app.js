@@ -15,4 +15,18 @@ http.listen(port, () => {
   console.log(`Listening on port ${port} and serving folder ${publicPath}`);
 });
 
+let spec;
+
+io.on('connection', (socket) => {
+  if (spec) {
+    socket.emit('spec', spec);
+  }
+
+  socket.on('newSpec', (newSpec) => {
+    spec = newSpec;
+    annotations = {};
+    io.emit('spec', spec);
+  });
+});
+
 require('svl-server')(io);
