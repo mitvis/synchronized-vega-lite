@@ -504,5 +504,3 @@ const synchronize = (selector, vlSpec, options, socket) => {
     });
   });
 };
-
-module.exports.synchronize = synchronize;
