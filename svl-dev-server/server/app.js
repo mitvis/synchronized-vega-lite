@@ -9,6 +9,16 @@ const publicPath = path.resolve(__dirname, '..', 'client');
 
 app.use(express.static(publicPath));
 
+const svlPath = path.resolve(
+  __dirname,
+  '..',
+  'node_modules',
+  'synchronized-vega-lite',
+  'cdn'
+);
+
+app.use('/svl', express.static(svlPath));
+
 const port = process.env.PORT || 3000;
 
 http.listen(port, () => {
