@@ -25,17 +25,33 @@ const svlServer = (io) => {
       socket.broadcast.emit('annotations', annotations);
     });
 
-    socket.on('requestState', (user) => {
-      console.log(`${socket.id} requesting state from ${user}`);
-      io.to(user).emit('stateRequest', socket.id);
+    socket.on('requestState', ({ user, track }) => {
+      console.log(
+        `${socket.id} requesting state from ${user}, tracking is ${track}`
+      );
+      io.to(user).emit('stateRequest', { to: socket.id, track });
+    });
+
+    socket.on('untrackState', (user) => {
+      console.log(`${socket.id} untracking ${user}`);
+      io.to(user).emit('untrack', socket.id);
     });
 
     socket.on('stateResponse', (response) => {
       console.log(`sending ${socket.id}'s state to ${response.to}`);
-      io.to(response.to).emit('remoteState', {
-        user: socket.id,
-        state: response.state,
-      });
+      if (Array.isArray(response.to)) {
+        response.to.forEach((to) => {
+          io.to(to).emit('remoteState', {
+            user: socket.id,
+            state: response.state,
+          });
+        });
+      } else {
+        io.to(response.to).emit('remoteState', {
+          user: socket.id,
+          state: response.state,
+        });
+      }
     });
 
     socket.on('disconnect', () => {
