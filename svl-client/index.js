@@ -146,8 +146,22 @@ const synchronize = (selector, vlSpec, options, socket) => {
     if (!annotationUpdate) {
       annotationUpdate = {
         stroke: { value: 'red' },
-        strokeWidth: { value: 0 },
-        opacity: { value: 0.6 },
+        strokeWidth: [
+          {
+            test:
+              'annotation_select._svlUser && annotation_select._svlUser === datum._svlUser',
+            value: 0.5,
+          },
+          { value: 0 },
+        ],
+        opacity: [
+          {
+            test:
+              'annotation_select._svlUser && annotation_select._svlUser === datum._svlUser',
+            value: 1,
+          },
+          { value: 0.6 },
+        ],
         x: xEncodeUpdate,
         y: yEncodeUpdate,
         fill: { field: '_svlColor' },
@@ -325,8 +339,22 @@ const synchronize = (selector, vlSpec, options, socket) => {
             update: {
               size: { value: 100 },
               stroke: { value: 'red' },
-              strokeWidth: { value: 0 },
-              opacity: { value: 0.6 },
+              strokeWidth: [
+                {
+                  test:
+                    'annotation_select._svlUser && annotation_select._svlUser === datum._svlUser',
+                  value: 0.5,
+                },
+                { value: 0 },
+              ],
+              opacity: [
+                {
+                  test:
+                    'annotation_select._svlUser && annotation_select._svlUser === datum._svlUser',
+                  value: 1,
+                },
+                { value: 0.6 },
+              ],
               fill: { field: 'color' },
               x: { field: 'x' },
               y: { value: 10 },
@@ -355,6 +383,17 @@ const synchronize = (selector, vlSpec, options, socket) => {
     on: annotation_hover_events,
   });
 
+  vgSpec.signals.push({
+    name: 'annotation_select',
+    value: {},
+    on: [
+      {
+        events: [{ source: 'scope', type: 'click' }],
+        update: 'datum && datum._svlUser ? datum : {}',
+      },
+    ],
+  });
+
   console.log(vgSpec);
 
   vegaEmbed(selector, vgSpec).then((res) => {
@@ -374,12 +413,17 @@ const synchronize = (selector, vlSpec, options, socket) => {
       }
     });
 
+    let peekingUser;
+    let trackingUser;
+    const trackers = new Set();
+
     for (const [selectionName, selection] of Object.entries(selections)) {
       const selectionType = selection.type;
 
       view.addSignalListener(selectionName, (name, value) => {
-        const hovering = view.signal(`annotation_hover`);
-        if (hovering._svlUser) {
+        const peeking = view.signal(`annotation_hover`);
+        const tracking = view.signal('annotation_select');
+        if (peeking._svlUser || tracking._svlUser) {
           // don't update other views when select state is modified by annotation interaction
           return;
         }
@@ -429,6 +473,14 @@ const synchronize = (selector, vlSpec, options, socket) => {
         }
         console.debug('emitting annotation');
         socket.emit('annotation', { annotation: newAnnotation, selectionName });
+        if (trackers.size) {
+          const selectState = view.getState({
+            signals: signalFilter,
+            data: dataFilter,
+          });
+          const state = Flatted.stringify(selectState);
+          socket.emit('stateResponse', { state, to: Array.from(trackers) });
+        }
       });
     }
 
@@ -444,19 +496,37 @@ const synchronize = (selector, vlSpec, options, socket) => {
         .runAsync();
     });
 
-    let remoteUser;
-
     // temporarily switch select state to remote user's selection state when interacting with annotation
     view.addSignalListener('annotation_hover', (name, value) => {
+      console.log('hover', value);
+      if (trackingUser) {
+        return;
+      }
       if (value._svlUser) {
         console.debug(`requesting state from ${value._svlUser}`);
-        socket.emit('requestState', value._svlUser);
-        remoteUser = value._svlUser;
+        socket.emit('requestState', { user: value._svlUser });
+        peekingUser = value._svlUser;
       } else {
-        remoteUser = undefined;
+        peekingUser = undefined;
         const tempState = view.signal('tempState');
         view.signal('tempState', {});
         view.setState(tempState);
+      }
+    });
+
+    view.addSignalListener('annotation_select', (name, value) => {
+      console.log('select', value);
+      if (value._svlUser) {
+        console.debug(`requesting state from ${value._svlUser}`);
+        socket.emit('requestState', { user: value._svlUser, track: true });
+        if (trackingUser !== value.svlUser) {
+          socket.emit('untrackState', trackingUser);
+        }
+        trackingUser = value._svlUser;
+        peekingUser = undefined;
+      } else if (trackingUser) {
+        socket.emit('untrackState', trackingUser);
+        trackingUser = undefined;
       }
     });
 
@@ -478,7 +548,10 @@ const synchronize = (selector, vlSpec, options, socket) => {
         .map((selectionName) => selectionName + '_store')
         .includes(name);
 
-    socket.on('stateRequest', (to) => {
+    socket.on('stateRequest', ({ to, track }) => {
+      if (track) {
+        trackers.add(to);
+      }
       const selectState = view.getState({
         signals: signalFilter,
         data: dataFilter,
@@ -489,16 +562,22 @@ const synchronize = (selector, vlSpec, options, socket) => {
       socket.emit('stateResponse', { state, to });
     });
 
+    socket.on('untrack', (user) => {
+      trackers.delete(user);
+    });
+
     socket.on('remoteState', (response) => {
-      if (response.user === remoteUser) {
-        console.debug(`got state from ${remoteUser}`);
+      if (response.user === peekingUser || response.user === trackingUser) {
+        console.debug(`got state from ${response.user}`);
         const remoteState = Flatted.parse(response.state);
         console.debug(remoteState);
-        const selectState = view.getState({
-          signals: signalFilter,
-          data: dataFilter,
-        });
-        view.signal('tempState', selectState);
+        if (peekingUser) {
+          const selectState = view.getState({
+            signals: signalFilter,
+            data: dataFilter,
+          });
+          view.signal('tempState', selectState);
+        }
         view.setState(remoteState);
       }
     });
