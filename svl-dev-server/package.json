@@ -21,8 +21,8 @@
   "dependencies": {
     "express": "^4.17.1",
     "socket.io": "^2.3.0",
-    "svl-server": "^1.1.2",
-    "synchronized-vega-lite": "^1.0.1"
+    "svl-server": "^2.0.0",
+    "synchronized-vega-lite": "^2.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.3"
