@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.2.2"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/flatted@2.0.2/min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/rfdc@1.1.4/index.min.js"></script>
     <script src="/svl/index.js"></script>
 
     <style media="screen">
@@ -40,9 +41,12 @@
       <input type="checkbox" id="annotationLegend"></input><label>Annotation Legend</label>
     </div>
     <div>
+      <input type="checkbox" id="remotePreviews"></input><label>Remote Previews</label>
+    </div>
+    <div>
       <button id="spec-submit">Submit</button>
     </div>
-    <div id="vis"></div>
+    <div id="vis" style="width: 100%; margin-top: 5vh"></div>
     <script src="index.js"></script>
   </body>
 </html>
