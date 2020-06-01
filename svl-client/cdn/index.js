@@ -1,3 +1,9 @@
+const DEFAULT_COLOR = 'green';
+const DEFAULT_ANNOTATION_SIZE = 100;
+const PREVIEW_SCALE_FACTOR = 1 / 4;
+
+const deepClone = rfdc();
+
 const synchronize = (selector, vlSpec, options, socket) => {
   console.log(vlSpec);
 
@@ -7,9 +13,7 @@ const synchronize = (selector, vlSpec, options, socket) => {
   const annotationDefinition = options?.annotationDefinition;
   const annotationLegend = options?.annotationLegend;
   const showAnnotations = options?.showAnnotations !== false;
-
-  const DEFAULT_COLOR = 'green';
-  const DEFAULT_ANNOTATION_SIZE = 100;
+  const remotePreviews = options?.remotePreviews;
 
   // default annotation
   let annotationMark = {
@@ -70,6 +74,32 @@ const synchronize = (selector, vlSpec, options, socket) => {
 
   // compile to vega
   const vgSpec = vegaLite.compile(vlSpec, {}).spec;
+
+  const previewVlSpec = deepClone(vlSpec);
+  previewVlSpec.width = 250;
+  previewVlSpec.height = 250;
+
+  const scaleVLSpecDown = (spec) => {
+    if (!spec) {
+      return;
+    }
+    for (const [key, value] of Object.entries(spec)) {
+      if (['height', 'width'].includes(key) && typeof value === 'number') {
+        spec[key] = value * PREVIEW_SCALE_FACTOR;
+      } else if (typeof value === 'object') {
+        // arrays included
+        scaleVLSpecDown(value);
+      }
+    }
+  };
+
+  scaleVLSpecDown(previewVlSpec);
+
+  console.log(previewVlSpec);
+
+  const previewSpec =
+    remotePreviews && vegaLite.compile(previewVlSpec, {}).spec;
+  console.log(previewSpec);
 
   console.log(vgSpec);
 
@@ -396,190 +426,413 @@ const synchronize = (selector, vlSpec, options, socket) => {
 
   console.log(vgSpec);
 
-  vegaEmbed(selector, vgSpec).then((res) => {
-    const view = res.view;
-    if (!socket) {
-      socket = io();
+  const svlContainer = document.querySelector(selector);
+
+  if (!document.querySelector('#svlVisContainer')) {
+    const visContainer = document.createElement('div');
+    visContainer.id = 'svlVisContainer';
+    svlContainer.append(visContainer);
+  }
+
+  let peekingUser;
+  let trackingUser;
+  const trackers = new Set();
+
+  if (remotePreviews) {
+    if (!document.querySelector('#remotePreviewsContainer')) {
+      const previews = document.createElement('div');
+      previews.id = 'remotePreviewsContainer';
+      previews.style.width = '100%';
+      svlContainer.append(previews);
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 's') {
-        console.log(
-          view.getState({
-            signals: (name) => name,
-            data: (name) => name,
-          })
-        );
-      }
-    });
-
-    let peekingUser;
-    let trackingUser;
-    const trackers = new Set();
-
-    for (const [selectionName, selection] of Object.entries(selections)) {
-      const selectionType = selection.type;
-
-      view.addSignalListener(selectionName, (name, value) => {
-        const peeking = view.signal(`annotation_hover`);
-        const tracking = view.signal('annotation_select');
-        if (peeking._svlUser || tracking._svlUser) {
-          // don't update other views when select state is modified by annotation interaction
-          return;
-        }
-
-        let newAnnotation;
-        if (Object.keys(value).length) {
-          if (selectionType === 'interval') {
-            // if interval type selection, grab x and y select signal values to pass for annotation
-            const signalNames = ['_x', '_y'].map(
-              (postfix) => selectionName + postfix
-            );
-            const selectState = view.getState({
-              signals: (name) => signalNames.includes(name),
-            });
-
-            // The "brush_x" signal exists either in the root signals or in a nested signal,
-            // thus all the extended logic here. Takes the first value of the brush selection.
-            // Falls back to 0,0 if nothing else found.
-            const [x, y] = signalNames.map(
-              (signal) =>
-                selectState.signals[signal]?.[0] ||
-                selectState.subcontext?.find((ctx) => ctx.signals[signal])
-                  ?.signals[signal]?.[0] ||
-                0
-            );
-
-            newAnnotation = {
-              _svlUser: socket.id,
-              _svlName: selectionName,
-              _svlColor: DEFAULT_COLOR,
-              _svlx: x,
-              _svly: y,
-              _isAnnotation_: true,
-            };
-          } else {
-            // otherwise, just pass the data of the representative marks for the interaction
-            // and the mark spec will handle it from there (see mark def at top of file)
-            const datum = view.data(`filtered_data_${selectionName}`)[0];
-            newAnnotation = {
-              _svlUser: socket.id,
-              _svlName: selectionName,
-              _svlColor: DEFAULT_COLOR,
-              ...datum,
-              _isAnnotation_: true,
-            };
-          }
-        }
-        console.debug('emitting annotation');
-        socket.emit('annotation', { annotation: newAnnotation, selectionName });
-        if (trackers.size) {
-          const selectState = view.getState({
-            signals: signalFilter,
-            data: dataFilter,
-          });
-          const state = Flatted.stringify(selectState);
-          socket.emit('stateResponse', { state, to: Array.from(trackers) });
-        }
-      });
-    }
-
-    socket.on('annotations', (annotations) => {
-      console.debug('receiving annotations');
-      view
-        .data(
-          'svl_annotations',
-          Object.values(annotations).filter(
-            (a) => a._svlUser && a._svlUser !== socket.id
-          )
-        )
-        .runAsync();
-    });
-
-    // temporarily switch select state to remote user's selection state when interacting with annotation
-    view.addSignalListener('annotation_hover', (name, value) => {
-      console.log('hover', value);
-      if (trackingUser) {
+    const reducePreview = (spec, isMark) => {
+      if (!spec) {
         return;
       }
-      if (value._svlUser) {
-        console.debug(`requesting state from ${value._svlUser}`);
-        socket.emit('requestState', { user: value._svlUser });
-        peekingUser = value._svlUser;
-      } else {
-        peekingUser = undefined;
-        const tempState = view.signal('tempState');
-        view.signal('tempState', {});
-        view.setState(tempState);
-      }
-    });
+      delete spec['legends'];
+      delete spec['axes'];
+      delete spec['title'];
 
-    view.addSignalListener('annotation_select', (name, value) => {
-      console.log('select', value);
-      if (value._svlUser) {
-        console.debug(`requesting state from ${value._svlUser}`);
-        socket.emit('requestState', { user: value._svlUser, track: true });
-        if (trackingUser !== value.svlUser) {
-          socket.emit('untrackState', trackingUser);
+      if (isMark) {
+        // from lyra
+        const mark = spec;
+        if (mark.type === 'symbol' && mark.encode?.update?.size?.value) {
+          mark.encode.update.size.value *= PREVIEW_SCALE_FACTOR;
         }
-        trackingUser = value._svlUser;
-        peekingUser = undefined;
-      } else if (trackingUser) {
-        socket.emit('untrackState', trackingUser);
-        trackingUser = undefined;
+        if (mark.type === 'text') {
+          if (mark.encode?.update?.fontSize?.value) {
+            mark.encode.update.fontSize.value /= 2;
+          }
+          if (mark.encode?.update?.dx?.value) {
+            mark.encode.update.dx.value *= PREVIEW_SCALE_FACTOR;
+          }
+          if (mark.encode?.update?.dy?.value) {
+            mark.encode.update.dy.value *= PREVIEW_SCALE_FACTOR;
+          }
+          if (mark.encode?.update?.x?.value) {
+            mark.encode.update.x.value *= PREVIEW_SCALE_FACTOR;
+          }
+          if (mark.encode?.update?.y?.value) {
+            mark.encode.update.y.value *= PREVIEW_SCALE_FACTOR;
+          }
+        }
+        if (mark.type === 'line' && mark.encode?.update?.strokeWidth?.value) {
+          mark.encode.update.strokeWidth.value /= 2;
+        }
       }
+
+      for (const [key, value] of Object.entries(spec)) {
+        if (typeof value === 'object') {
+          if (key === 'marks') {
+            value.forEach((mark) => reducePreview(mark, true));
+          } else {
+            reducePreview(value);
+          }
+        }
+      }
+    };
+
+    reducePreview(previewSpec);
+  }
+
+  let previewViews = [];
+
+  // helper function to handle previews
+  const renderPreviews = async (annotations, socket, view) => {
+    if (!remotePreviews) {
+      return;
+    }
+    const previewsContainer = document.querySelector(
+      '#remotePreviewsContainer'
+    );
+    annotations = Object.values(annotations);
+    const uniqueUsers = new Set();
+    annotations = annotations.reverse().filter((d) => {
+      if (uniqueUsers.has(d._svlUser) || d._svlUser === socket.id) {
+        return false;
+      }
+      uniqueUsers.add(d._svlUser);
+      return true;
     });
-
-    // Takes a name of a signal, checks whether it matches any combination of
-    // any selection name followed by either '_x' or '_y'.
-    const signalFilter = (name) =>
-      Object.keys(selections)
-        .map(
-          (selectionName) =>
-            name.startsWith(selectionName) &&
-            [...name].filter((char) => char === '_').length <= 1 // ignore complicated signals since they break intervals for some reason, TODO: Make this cleaner
-        )
-        .some(Boolean);
-
-    // Takes a name of a data set, checks whether it matches any selection name
-    // followed by '_store' (e.g. 'click_store').
-    const dataFilter = (name) =>
-      Object.keys(selections)
-        .map((selectionName) => selectionName + '_store')
-        .includes(name);
-
-    socket.on('stateRequest', ({ to, track }) => {
-      if (track) {
-        trackers.add(to);
-      }
-      const selectState = view.getState({
-        signals: signalFilter,
-        data: dataFilter,
+    if (previewsContainer.childElementCount !== annotations.length) {
+      // reset all children
+      console.log('resetting previews!');
+      previewViews.forEach((view) => view.finalize());
+      previewsContainer.textContent = '';
+      const previewDivs = annotations.map((d) => {
+        const div = document.createElement('div');
+        div.id = 'svl_preview_' + d._svlUser;
+        div.style.borderStyle = 'solid';
+        div.style.borderRadius = '4px';
+        div.style.marginRight = '2px';
+        div.style.overflow = 'hidden';
+        div.classList.add('svlPreview');
+        div.setAttribute('svl_user', d._svlUser);
+        return div;
       });
-      console.debug(selectState);
-      const state = Flatted.stringify(selectState);
-      console.debug(`sending state to ${to}`);
-      socket.emit('stateResponse', { state, to });
-    });
 
-    socket.on('untrack', (user) => {
-      trackers.delete(user);
-    });
+      previewsContainer.append(...previewDivs);
+      previewViews = (
+        await Promise.all(
+          annotations.map((d) =>
+            vegaEmbed('#svl_preview_' + d._svlUser, previewSpec, {
+              actions: false,
+            })
+          )
+        )
+      ).map((res) => res.view);
 
-    socket.on('remoteState', (response) => {
-      if (response.user === peekingUser || response.user === trackingUser) {
-        console.debug(`got state from ${response.user}`);
-        const remoteState = Flatted.parse(response.state);
-        console.debug(remoteState);
-        if (peekingUser) {
+      previewDivs.forEach((div) => {
+        const user = div.getAttribute('svl_user');
+        const overlay = document.createElement('div');
+        div.append(overlay);
+        overlay.style.position = 'absolute';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.opacity = trackingUser === user ? '0.1' : '0';
+        overlay.classList.add('svlPreviewOverlay');
+        overlay.setAttribute('svl_user', user);
+        overlay.id = 'svl_preview_overlay_' + user;
+      });
+    }
+
+    annotations.forEach((data, i) => {
+      const previewContainer = previewsContainer.querySelector(
+        '#svl_preview_' + data._svlUser
+      );
+      previewContainer.style.borderColor = data._svlColor;
+      previewContainer.querySelector(
+        '.svlPreviewOverlay'
+      ).style.backgroundColor = data._svlColor;
+      const preview = previewViews[i];
+      if (preview) {
+        preview.setState(Flatted.parse(data.state));
+        preview.runAsync();
+      }
+    });
+  };
+
+  return vegaEmbed('#svlVisContainer', vgSpec, { actions: false }).then(
+    (res) => {
+      const view = res.view;
+      if (!socket) {
+        socket = io();
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 's') {
+          console.log(
+            view.getState({
+              signals: (name) => name,
+              data: (name) => name,
+            })
+          );
+        }
+      });
+
+      if (remotePreviews) {
+        const previewsContainer = document.querySelector(
+          '#remotePreviewsContainer'
+        );
+        previewsContainer.addEventListener('mouseover', (e) => {
+          const el = e.target;
+          if (el.classList.contains('svlPreviewOverlay')) {
+            if (trackingUser) {
+              return;
+            }
+            el.style.opacity = '0.1';
+            const user = el.getAttribute('svl_user');
+            console.debug(`requesting state from ${user}`);
+            socket.emit('requestState', { user, track: true });
+            peekingUser = user;
+            const selectState = view.getState({
+              signals: signalFilter,
+              data: dataFilter,
+            });
+            view.signal('tempState', selectState);
+          }
+        });
+
+        previewsContainer.addEventListener('mouseout', (e) => {
+          const el = e.target;
+          if (el.classList.contains('svlPreviewOverlay')) {
+            if (trackingUser) {
+              return;
+            }
+            el.style.opacity = '0';
+            socket.emit('untrackState', peekingUser);
+            peekingUser = undefined;
+            const tempState = view.signal('tempState');
+            view.signal('tempState', {});
+            view.setState(tempState);
+          }
+        });
+
+        document.addEventListener('click', (e) => {
+          const el = e.target;
+          if (el.classList.contains('svlPreviewOverlay')) {
+            const user = el.getAttribute('svl_user');
+            console.debug(`requesting state from ${user}`);
+            socket.emit('requestState', { user, track: true });
+            if (trackingUser !== user) {
+              socket.emit('untrackState', trackingUser);
+            }
+            trackingUser = user;
+            peekingUser = undefined;
+          } else if (trackingUser) {
+            console.log('unclick');
+            socket.emit('untrackState', trackingUser);
+            previewsContainer.querySelector(
+              '#svl_preview_overlay_' + trackingUser
+            ).style.opacity = 0;
+            trackingUser = undefined;
+          }
+        });
+      }
+
+      for (const [selectionName, selection] of Object.entries(selections)) {
+        const selectionType = selection.type;
+
+        view.addSignalListener(selectionName, (name, value) => {
+          if (peekingUser || trackingUser) {
+            // don't update other views when select state is modified by annotation interaction
+            return;
+          }
+
+          let newAnnotation;
+          if (Object.keys(value).length) {
+            if (selectionType === 'interval') {
+              // if interval type selection, grab x and y select signal values to pass for annotation
+              const signalNames = ['_x', '_y'].map(
+                (postfix) => selectionName + postfix
+              );
+              const selectState = view.getState({
+                signals: (name) => signalNames.includes(name),
+              });
+
+              // The "brush_x" signal exists either in the root signals or in a nested signal,
+              // thus all the extended logic here. Takes the first value of the brush selection.
+              // Falls back to 0,0 if nothing else found.
+              const [x, y] = signalNames.map(
+                (signal) =>
+                  selectState.signals[signal]?.[0] ||
+                  selectState.subcontext?.find((ctx) => ctx.signals[signal])
+                    ?.signals[signal]?.[0] ||
+                  0
+              );
+
+              newAnnotation = {
+                _svlUser: socket.id,
+                _svlName: selectionName,
+                _svlColor: DEFAULT_COLOR,
+                _svlx: x,
+                _svly: y,
+                _isAnnotation_: true,
+              };
+            } else {
+              // otherwise, just pass the data of the representative marks for the interaction
+              // and the mark spec will handle it from there (see mark def at top of file)
+              const datum = view.data(`filtered_data_${selectionName}`)[0];
+              newAnnotation = {
+                _svlUser: socket.id,
+                _svlName: selectionName,
+                _svlColor: DEFAULT_COLOR,
+                ...datum,
+                _isAnnotation_: true,
+              };
+            }
+          }
+          console.debug('emitting annotation');
+          if (newAnnotation && remotePreviews) {
+            const selectState = view.getState({
+              signals: signalFilter,
+              data: dataFilter,
+            });
+            const state = Flatted.stringify(selectState);
+            newAnnotation = {
+              ...newAnnotation,
+              state,
+            };
+          }
+          socket.emit('annotation', {
+            annotation: newAnnotation,
+            selectionName,
+          });
+          if (trackers.size) {
+            const selectState = view.getState({
+              signals: signalFilter,
+              data: dataFilter,
+            });
+            const state = Flatted.stringify(selectState);
+            socket.emit('stateResponse', { state, to: Array.from(trackers) });
+          }
+        });
+      }
+
+      socket.on('annotations', (annotations) => {
+        console.debug('receiving annotations');
+        view
+          .data(
+            'svl_annotations',
+            Object.values(annotations).filter(
+              (a) => a._svlUser && a._svlUser !== socket.id
+            )
+          )
+          .runAsync();
+        if (remotePreviews) {
+          renderPreviews(annotations, socket, view);
+        }
+      });
+
+      // Takes a name of a signal, checks whether it matches any combination of
+      // any selection name followed by either '_x' or '_y'.
+      const signalFilter = (name) =>
+        Object.keys(selections)
+          .map(
+            (selectionName) =>
+              name.startsWith(selectionName) &&
+              [...name].filter((char) => char === '_').length <= 1 // ignore complicated signals since they break intervals for some reason, TODO: Make this cleaner
+          )
+          .some(Boolean);
+
+      // Takes a name of a data set, checks whether it matches any selection name
+      // followed by '_store' (e.g. 'click_store').
+      const dataFilter = (name) =>
+        Object.keys(selections)
+          .map((selectionName) => selectionName + '_store')
+          .includes(name);
+
+      // temporarily switch select state to remote user's selection state when interacting with annotation
+      view.addSignalListener('annotation_hover', (name, value) => {
+        console.log('hover', value);
+        if (trackingUser) {
+          return;
+        }
+        if (value._svlUser) {
+          console.debug(`requesting state from ${value._svlUser}`);
+          socket.emit('requestState', { user: value._svlUser, track: true });
+          peekingUser = value._svlUser;
           const selectState = view.getState({
             signals: signalFilter,
             data: dataFilter,
           });
           view.signal('tempState', selectState);
+        } else {
+          socket.emit('untrackState', peekingUser);
+          peekingUser = undefined;
+          const tempState = view.signal('tempState');
+          view.signal('tempState', {});
+          view.setState(tempState);
         }
-        view.setState(remoteState);
-      }
-    });
-  });
+      });
+
+      view.addSignalListener('annotation_select', (name, value) => {
+        console.log('select', value);
+        if (value._svlUser) {
+          console.debug(`requesting state from ${value._svlUser}`);
+          socket.emit('requestState', { user: value._svlUser, track: true });
+          if (trackingUser !== value.svlUser) {
+            socket.emit('untrackState', trackingUser);
+          }
+          trackingUser = value._svlUser;
+          peekingUser = undefined;
+        } else if (trackingUser) {
+          socket.emit('untrackState', trackingUser);
+          trackingUser = undefined;
+        }
+      });
+
+      socket.on('stateRequest', ({ to, track }) => {
+        if (track) {
+          trackers.add(to);
+        }
+        const selectState = view.getState({
+          signals: signalFilter,
+          data: dataFilter,
+        });
+        console.debug(selectState);
+        const state = Flatted.stringify(selectState);
+        console.debug(`sending state to ${to}`);
+        socket.emit('stateResponse', { state, to });
+      });
+
+      socket.on('untrack', (user) => {
+        trackers.delete(user);
+      });
+
+      socket.on('remoteState', (response) => {
+        if (response.user === peekingUser || response.user === trackingUser) {
+          console.debug(`got state from ${response.user}`);
+          const remoteState = Flatted.parse(response.state);
+          console.debug(remoteState);
+          view.setState(remoteState);
+        }
+      });
+
+      return view;
+    }
+  );
 };
