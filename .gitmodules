@@ -1,0 +1,9 @@
+[submodule "svl-client"]
+	path = svl-client
+	url = git@github.com:mitvis/svl-client.git
+[submodule "svl-server"]
+	path = svl-server
+	url = git@github.com:mitvis/svl-server.git
+[submodule "svl-dev-server"]
+	path = svl-dev-server
+	url = git@github.com:rneogy/svl-dev-server.git
