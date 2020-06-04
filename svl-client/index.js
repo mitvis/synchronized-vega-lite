@@ -243,16 +243,18 @@ const synchronize = (selector, vlSpec, options, socket) => {
     // logic for visualization encoding updates on annotation hover
     if (selectionType === 'interval') {
       const brushBGName = selectionName + '_brush_bg';
-      const brushBGEnter = allMarks.find((m) => m.name === brushBGName).encode
-        .enter;
-      prevFill = brushBGEnter.fill;
-      brushBGEnter.fill = [
-        {
-          test: 'annotation_hover.color',
-          signal: 'annotation_hover.color',
-        },
-        prevFill,
-      ];
+      const brushBGMark = allMarks.find((m) => m.name === brushBGName);
+      if (brushBGMark) {
+        const brushBGEnter = brushBGMark.encode.enter;
+        prevFill = brushBGEnter.fill;
+        brushBGEnter.fill = [
+          {
+            test: 'annotation_hover.color',
+            signal: 'annotation_hover.color',
+          },
+          prevFill,
+        ];
+      }
     } else if (colorField) {
       const prevField = markEncode.update[colorField];
       if (prevField === undefined) {
