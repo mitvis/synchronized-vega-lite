@@ -243,16 +243,18 @@ const synchronize = (selector, vlSpec, options, socket) => {
     // logic for visualization encoding updates on annotation hover
     if (selectionType === 'interval') {
       const brushBGName = selectionName + '_brush_bg';
-      const brushBGEnter = allMarks.find((m) => m.name === brushBGName).encode
-        .enter;
-      prevFill = brushBGEnter.fill;
-      brushBGEnter.fill = [
-        {
-          test: 'annotation_hover.color',
-          signal: 'annotation_hover.color',
-        },
-        prevFill,
-      ];
+      const brushBGMark = allMarks.find((m) => m.name === brushBGName);
+      if (brushBGMark) {
+        const brushBGEnter = brushBGMark.encode.enter;
+        prevFill = brushBGEnter.fill;
+        brushBGEnter.fill = [
+          {
+            test: 'annotation_hover.color',
+            signal: 'annotation_hover.color',
+          },
+          prevFill,
+        ];
+      }
     } else if (colorField) {
       const prevField = markEncode.update[colorField];
       if (prevField === undefined) {
@@ -517,7 +519,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
     });
     if (previewsContainer.childElementCount !== annotations.length) {
       // reset all children
-      console.log('resetting previews!');
       previewViews.forEach((view) => view.finalize());
       previewsContainer.textContent = '';
       const previewDivs = annotations.map((d) => {
@@ -643,7 +644,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
             trackingUser = user;
             peekingUser = undefined;
           } else if (trackingUser) {
-            console.log('unclick');
             socket.emit('untrackState', trackingUser);
             previewsContainer.querySelector(
               '#svl_preview_overlay_' + trackingUser
@@ -767,7 +767,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
 
       // temporarily switch select state to remote user's selection state when interacting with annotation
       view.addSignalListener('annotation_hover', (name, value) => {
-        console.log('hover', value);
         if (trackingUser) {
           return;
         }
@@ -790,7 +789,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
       });
 
       view.addSignalListener('annotation_select', (name, value) => {
-        console.log('select', value);
         if (value._svlUser) {
           console.debug(`requesting state from ${value._svlUser}`);
           socket.emit('requestState', { user: value._svlUser, track: true });
@@ -836,5 +834,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
     }
   );
 };
+
 
 module.exports.synchronize = synchronize;
