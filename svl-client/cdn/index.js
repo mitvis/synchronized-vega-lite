@@ -450,6 +450,7 @@ const synchronize = (selector, vlSpec, options, socket) => {
       if (!spec) {
         return;
       }
+
       delete spec['legends'];
       delete spec['axes'];
       delete spec['title'];
@@ -492,8 +493,32 @@ const synchronize = (selector, vlSpec, options, socket) => {
         }
       }
     };
-
-    reducePreview(previewSpec);
+    const cleanPreview = (previewSpec) => {
+      previewSpec.scales = previewSpec.scales.map(scale => {
+        if (scale.range) {
+          const range = scale.range;
+          // linear numeric scales
+          if (Array.isArray(range) && range.length == 2 && !range.some(isNaN)) {
+            scale.range = range.map(n => n / 10);
+          }
+          // band scales using signal ref for step
+          if (range.step && range.step.signal) {
+            previewSpec.signals = previewSpec.signals.map(signal => {
+              if (signal.name === range.step.signal) {
+                signal.value /= 2;
+              }
+              return signal;
+            });
+          }
+        }
+        return scale;
+      });
+      if (previewSpec.layout?.padding) {
+        previewSpec.layout.padding /= 2;
+      }
+      reducePreview(previewSpec);
+    }
+    cleanPreview(previewSpec);
   }
 
   let previewViews = [];
