@@ -450,6 +450,7 @@ const synchronize = (selector, vlSpec, options, socket) => {
       if (!spec) {
         return;
       }
+
       delete spec['legends'];
       delete spec['axes'];
       delete spec['title'];
@@ -492,8 +493,32 @@ const synchronize = (selector, vlSpec, options, socket) => {
         }
       }
     };
-
-    reducePreview(previewSpec);
+    const cleanPreview = (previewSpec) => {
+      previewSpec.scales = previewSpec.scales.map(scale => {
+        if (scale.range) {
+          const range = scale.range;
+          // linear numeric scales
+          if (Array.isArray(range) && range.length == 2 && !range.some(isNaN)) {
+            scale.range = range.map(n => n / 10);
+          }
+          // band scales using signal ref for step
+          if (range.step && range.step.signal) {
+            previewSpec.signals = previewSpec.signals.map(signal => {
+              if (signal.name === range.step.signal) {
+                signal.value /= 2;
+              }
+              return signal;
+            });
+          }
+        }
+        return scale;
+      });
+      if (previewSpec.layout?.padding) {
+        previewSpec.layout.padding /= 2;
+      }
+      reducePreview(previewSpec);
+    }
+    cleanPreview(previewSpec);
   }
 
   let previewViews = [];
@@ -517,7 +542,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
     });
     if (previewsContainer.childElementCount !== annotations.length) {
       // reset all children
-      console.log('resetting previews!');
       previewViews.forEach((view) => view.finalize());
       previewsContainer.textContent = '';
       const previewDivs = annotations.map((d) => {
@@ -643,7 +667,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
             trackingUser = user;
             peekingUser = undefined;
           } else if (trackingUser) {
-            console.log('unclick');
             socket.emit('untrackState', trackingUser);
             previewsContainer.querySelector(
               '#svl_preview_overlay_' + trackingUser
@@ -767,7 +790,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
 
       // temporarily switch select state to remote user's selection state when interacting with annotation
       view.addSignalListener('annotation_hover', (name, value) => {
-        console.log('hover', value);
         if (trackingUser) {
           return;
         }
@@ -790,7 +812,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
       });
 
       view.addSignalListener('annotation_select', (name, value) => {
-        console.log('select', value);
         if (value._svlUser) {
           console.debug(`requesting state from ${value._svlUser}`);
           socket.emit('requestState', { user: value._svlUser, track: true });
@@ -836,5 +857,6 @@ const synchronize = (selector, vlSpec, options, socket) => {
     }
   );
 };
+
 
 module.exports.synchronize = synchronize;
