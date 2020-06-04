@@ -595,7 +595,16 @@ const synchronize = (selector, vlSpec, options, socket) => {
       ).style.backgroundColor = data._svlColor;
       const preview = previewViews[i];
       if (preview) {
-        preview.setState(Flatted.parse(data.state));
+        const state = Flatted.parse(data.state);
+        Object.entries(state.signals).forEach(([key, value]) => {
+          if (key === 'brush_x') {
+            state.signals[key] = value.map(n => n * preview.width() / view.width());
+          }
+          if (key === 'brush_y') {
+            state.signals[key] = value.map(n => n * preview.height() / view.height());
+          }
+        });
+        preview.setState(state);
         preview.runAsync();
       }
     });
