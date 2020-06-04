@@ -496,16 +496,16 @@ const synchronize = (selector, vlSpec, options, socket) => {
       }
     };
     const cleanPreview = (previewSpec) => {
-      previewSpec.scales = previewSpec.scales.map(scale => {
+      previewSpec.scales = previewSpec.scales.map((scale) => {
         if (scale.range) {
           const range = scale.range;
           // linear numeric scales
           if (Array.isArray(range) && range.length == 2 && !range.some(isNaN)) {
-            scale.range = range.map(n => n / 10);
+            scale.range = range.map((n) => n / 10);
           }
           // band scales using signal ref for step
           if (range.step && range.step.signal) {
-            previewSpec.signals = previewSpec.signals.map(signal => {
+            previewSpec.signals = previewSpec.signals.map((signal) => {
               if (signal.name === range.step.signal) {
                 signal.value /= 2;
               }
@@ -519,7 +519,7 @@ const synchronize = (selector, vlSpec, options, socket) => {
         previewSpec.layout.padding /= 2;
       }
       reducePreview(previewSpec);
-    }
+    };
     cleanPreview(previewSpec);
   }
 
@@ -598,11 +598,29 @@ const synchronize = (selector, vlSpec, options, socket) => {
         const state = Flatted.parse(data.state);
         Object.entries(state.signals).forEach(([key, value]) => {
           if (key === 'brush_x') {
-            state.signals[key] = value.map(n => n * preview.width() / view.width());
+            state.signals[key] = value.map(
+              (n) => (n * preview.width()) / view.width()
+            );
           }
           if (key === 'brush_y') {
-            state.signals[key] = value.map(n => n * preview.height() / view.height());
+            state.signals[key] = value.map(
+              (n) => (n * preview.height()) / view.height()
+            );
           }
+        });
+        state.subcontext?.forEach((ctx) => {
+          Object.entries(ctx.signals).forEach(([key, value]) => {
+            if (key === 'brush_x') {
+              ctx.signals[key] = value.map(
+                (n) => (n * preview.width()) / view.width()
+              );
+            }
+            if (key === 'brush_y') {
+              ctx.signals[key] = value.map(
+                (n) => (n * preview.height()) / view.height()
+              );
+            }
+          });
         });
         preview.setState(state);
         preview.runAsync();
