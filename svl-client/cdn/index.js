@@ -730,18 +730,19 @@ const synchronize = (selector, vlSpec, options, socket) => {
               // Falls back to 0,0 if nothing else found.
               const [x, y] = signalNames.map(
                 (signal) =>
-                  selectState.signals[signal]?.[0] ||
+                  selectState.signals[signal] ||
                   selectState.subcontext?.find((ctx) => ctx.signals[signal])
-                    ?.signals[signal]?.[0] ||
-                  0
+                    ?.signals[signal] || [0, 0]
               );
 
               newAnnotation = {
                 _svlUser: socket.id,
                 _svlName: selectionName,
                 _svlColor: DEFAULT_COLOR,
-                _svlx: x,
-                _svly: y,
+                _svlx: x[0],
+                _svly: y[0],
+                _svlx2: x[1],
+                _svly2: y[1],
                 _isAnnotation_: true,
               };
             } else {
