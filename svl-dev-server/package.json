@@ -1,0 +1,30 @@
+{
+  "name": "svl-dev-server",
+  "version": "1.0.0",
+  "description": "Development server for synchronized-vega-lite and svl-server.",
+  "main": "server/app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server/app.js",
+    "dev": "nodemon server/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rneogy/SVL-dev-server.git"
+  },
+  "author": "Rupayan Neogy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rneogy/SVL-dev-server/issues"
+  },
+  "homepage": "https://github.com/rneogy/SVL-dev-server#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^2.3.0",
+    "svl-server": "^2.0.0",
+    "synchronized-vega-lite": "^2.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.3"
+  }
+}

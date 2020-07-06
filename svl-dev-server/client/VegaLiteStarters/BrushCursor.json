@@ -1,0 +1,30 @@
+{
+  "mark": {
+    "type": "rect"
+  },
+  "encoding": {
+    "x": {
+      "scale": null,
+      "field": "_svlx",
+      "type": "quantitative"
+    },
+    "x2": {
+      "scale": null,
+      "field": "_svlx2",
+      "type": "quantitative"
+    },
+    "stroke": {
+      "scale": null,
+      "field": "_svlColor"
+    },
+    "strokeWidth": {
+      "value": 2
+    },
+    "opacity": {
+      "value": 0.5
+    },
+    "fill": {
+      "value": null
+    }
+  }
+}

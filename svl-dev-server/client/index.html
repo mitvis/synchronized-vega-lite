@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Synchronized Vega-Lite</title>
+    <meta charset="utf-8" />
+
+    <script src="https://cdn.jsdelivr.net/npm/vega@5.9.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@4.4.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.2.2"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/flatted@2.0.2/min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/rfdc@1.1.4/index.min.js"></script>
+    <script src="/svl/index.js"></script>
+
+    <style media="screen">
+      /* Add space between Vega-Embed links  */
+      .vega-actions a {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="inputs">
+      <textarea
+        id="spec-input"
+        placeholder="Enter specification here..."
+        rows="10"
+        cols="50"
+      ></textarea>
+      <textarea
+        id="annotation-input"
+        placeholder="Enter custom annotation here..."
+        rows="10"
+        cols="50"
+      ></textarea>
+    </div>
+    <div>
+      <input type="checkbox" id="showAnnotations" checked></input><label>Annotations</label>
+    </div>
+    <div>
+      <input type="checkbox" id="annotationLegend"></input><label>Annotation Legend</label>
+    </div>
+    <div>
+      <input type="checkbox" id="remotePreviews"></input><label>Remote Previews</label>
+    </div>
+    <div>
+      <button id="spec-submit">Submit</button>
+    </div>
+    <div id="vis" style="width: 100%; margin-top: 5vh"></div>
+    <script src="index.js"></script>
+  </body>
+</html>

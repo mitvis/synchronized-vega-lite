@@ -1,0 +1,10 @@
+{
+  "annotationDefinition": {
+    "mark": { "type": "circle" },
+    "encoding": {
+      "latitude": { "field": "latitude", "type": "quantitative" },
+      "longitude": { "field": "longitude", "type": "quantitative" },
+      "color": { "scale": null, "field": "_svlColor" }
+    }
+  }
+}

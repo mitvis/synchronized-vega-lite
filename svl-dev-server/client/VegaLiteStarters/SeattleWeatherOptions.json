@@ -1,0 +1,9 @@
+{
+  "selectionName": "brush",
+  "selectionType": "interval",
+  "markName": "scatter",
+  "groupName": "scatter",
+  "annotationDefinition": {
+    "mark": "square"
+  }
+}
