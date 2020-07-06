@@ -1,0 +1,24 @@
+{
+  "name": "synchronized-vega-lite",
+  "version": "2.2.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mitvis/synchronized-vega-lite.git"
+  },
+  "author": "Rupayan Neogy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mitvis/synchronized-vega-lite/issues"
+  },
+  "homepage": "https://github.com/mitvis/synchronized-vega-lite#readme",
+  "dependencies": {
+    "flatted": "^2.0.2",
+    "socket.io-client": "^2.3.0"
+  }
+}
